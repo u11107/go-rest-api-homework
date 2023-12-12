@@ -2,7 +2,7 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -48,12 +48,15 @@ func getTasks(w http.ResponseWriter, r *http.Request) {
 	jsonData, err := json.Marshal(taskList)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Printf("Ошибка при маршализации данных: %s", err.Error())
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write(jsonData)
+	if _, err := w.Write(jsonData); err != nil {
+		log.Printf("Ошибка при записи данных в ResponseWriter: %s", err.Error())
+	}
 }
 
 func createTask(w http.ResponseWriter, r *http.Request) {
@@ -61,6 +64,7 @@ func createTask(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&newTask)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		log.Printf("Ошибка при декодировании данных: %s", err.Error())
 		return
 	}
 
@@ -81,12 +85,15 @@ func getTaskByID(w http.ResponseWriter, r *http.Request) {
 	jsonData, err := json.Marshal(task)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Printf("Ошибка при маршализации данных: %s", err.Error())
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write(jsonData)
+	if _, err := w.Write(jsonData); err != nil {
+		log.Printf("Ошибка при записи данных в ResponseWriter: %s", err.Error())
+	}
 }
 
 func deleteTaskByID(w http.ResponseWriter, r *http.Request) {
@@ -111,7 +118,7 @@ func main() {
 	r.Delete("/tasks/{id}", deleteTaskByID)
 
 	if err := http.ListenAndServe(":8080", r); err != nil {
-		fmt.Printf("Ошибка при запуске сервера: %s", err.Error())
+		log.Fatalf("Ошибка при запуске сервера: %s", err.Error())
 		return
 	}
 }
