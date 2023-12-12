@@ -1,13 +1,13 @@
 package main
 
 import (
-	"fmt"
+	"encoding/json"
+	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 )
 
-// Task ...
 type Task struct {
 	ID           string   `json:"id"`
 	Description  string   `json:"description"`
@@ -39,17 +39,86 @@ var tasks = map[string]Task{
 	},
 }
 
-// Ниже напишите обработчики для каждого эндпоинта
-// ...
+func getTasks(w http.ResponseWriter, r *http.Request) {
+	taskList := make([]Task, 0, len(tasks))
+	for _, task := range tasks {
+		taskList = append(taskList, task)
+	}
+
+	jsonData, err := json.Marshal(taskList)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Printf("Ошибка при маршализации данных: %s", err.Error())
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if _, err := w.Write(jsonData); err != nil {
+		log.Printf("Ошибка при записи данных в ResponseWriter: %s", err.Error())
+	}
+}
+
+func createTask(w http.ResponseWriter, r *http.Request) {
+	var newTask Task
+	err := json.NewDecoder(r.Body).Decode(&newTask)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		log.Printf("Ошибка при декодировании данных: %s", err.Error())
+		return
+	}
+
+	tasks[newTask.ID] = newTask
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+}
+
+func getTaskByID(w http.ResponseWriter, r *http.Request) {
+	taskID := chi.URLParam(r, "id")
+	task, ok := tasks[taskID]
+	if !ok {
+		http.Error(w, "Task not found", http.StatusBadRequest)
+		return
+	}
+
+	jsonData, err := json.Marshal(task)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Printf("Ошибка при маршализации данных: %s", err.Error())
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if _, err := w.Write(jsonData); err != nil {
+		log.Printf("Ошибка при записи данных в ResponseWriter: %s", err.Error())
+	}
+}
+
+func deleteTaskByID(w http.ResponseWriter, r *http.Request) {
+	taskID := chi.URLParam(r, "id")
+	_, ok := tasks[taskID]
+	if !ok {
+		http.Error(w, "Task not found", http.StatusBadRequest)
+		return
+	}
+
+	delete(tasks, taskID)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+}
 
 func main() {
 	r := chi.NewRouter()
-
-	// здесь регистрируйте ваши обработчики
-	// ...
+	r.Get("/tasks", getTasks)
+	r.Post("/tasks", createTask)
+	r.Get("/tasks/{id}", getTaskByID)
+	r.Delete("/tasks/{id}", deleteTaskByID)
 
 	if err := http.ListenAndServe(":8080", r); err != nil {
-		fmt.Printf("Ошибка при запуске сервера: %s", err.Error())
+		log.Fatalf("Ошибка при запуске сервера: %s", err.Error())
 		return
 	}
 }
